@@ -1,0 +1,48 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: shuttle-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: shuttle
+      MYSQL_DATABASE: shuttle
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - shuttle-mysql-data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pshuttle"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  server:
+    build: ./server
+    container_name: shuttle-server
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: shuttle
+      DB_NAME: shuttle
+      DB_SYNC: "true"
+      PORT: 3001
+      JWT_SECRET: scenic-shuttle-dev-secret
+    ports:
+      - "3001:3001"
+
+  web:
+    build: ./web
+    container_name: shuttle-web
+    depends_on: [server]
+    ports:
+      - "5173:5173"
+
+volumes:
+  shuttle-mysql-data:
